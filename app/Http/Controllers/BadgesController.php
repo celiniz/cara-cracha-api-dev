@@ -24,9 +24,25 @@ class BadgesController extends Controller
     */
     public function find($id){
 
-        $return = $this->badge->find($id);
+        $customers = $this->badge->findClear($id);
 
-        return response()->json($return, 200);
+        $urlSite = url()->to('/');
+        
+        foreach ($customers as $customer) {
+            if (isset($customer->subscription)){
+                unset($customer->subscription);
+            }
+            if (isset($customer->photo)) {
+                $customer->photo = $urlSite.$customer->photo;
+            }
+            if(isset($customer->photos) && sizeof($customer->photos)){
+                foreach ($customer->photos as $photos) {
+                    $photos->filename = $urlSite.$photos->filename;
+                }
+            }
+        }
+
+        return response()->json($customers, 200);
     }
 
 
@@ -39,8 +55,13 @@ class BadgesController extends Controller
     *
     */
     public function search(){
-
         $return = $this->badge->search();
+
+        $urlSite = url()->to('/');
+        
+        foreach($return as $row){
+            $row->photo = $urlSite.$row->photo;
+        }
 
         return response()->json($return, 200);
     }

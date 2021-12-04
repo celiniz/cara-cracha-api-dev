@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Banner;
+use Illuminate\Routing\UrlGenerator;
 
 class BannersController extends Controller
 {
@@ -18,6 +19,13 @@ class BannersController extends Controller
      */
 
     public function get(){
-        return response()->json($this->banner->mobile()->orderBy('order')->get(), 200);        
+        $banners = $this->banner->mobile()->orderBy('order')->get();
+        $urlSite = url()->to('/');
+        
+        foreach($banners as $row){
+            $row->img = $urlSite.$row->img;
+        }
+
+        return response()->json($banners, 200);        
     }
 }

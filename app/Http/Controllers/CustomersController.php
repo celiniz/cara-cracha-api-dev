@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use App\User;
 use App\Repositories\CustomerRepository;
 use App\Repositories\TransactionRepository;
-
+use Illuminate\Validation\ValidationException;
 class CustomersController extends Controller
 {
     private $customer;
@@ -29,15 +29,24 @@ class CustomersController extends Controller
      */
     public function signup(Request $request)
     {
-        $request->validate([
-            'first_name' => 'required|string',
-            'last_name' => 'required|string',
-            'email' => 'required|string|email|unique:users',
-            'password' => 'required|string|confirmed'
-        ]);
+        try {
+            $request->validate([
+                'first_name' => 'required|string',
+                'last_name' => 'required|string',
+                'email' => 'required|string|email|unique:customers',
+                'password' => 'required|string|confirmed'
+            ]);
+    
+        } catch (ValidationException $exception){
+            return response()->json([
+                'status' => 'error',
+                'msg'    => 'Error',
+                'errors' => $exception->errors(),
+            ], 409);
+        }
 
         $user = $this->customer->signup($request); 
-
+    
         return response()->json([
             'msg' => 'Successfully created user!',
             'user' => $user

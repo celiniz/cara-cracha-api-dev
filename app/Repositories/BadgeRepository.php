@@ -188,6 +188,45 @@ class BadgeRepository
     *
     *
     */
+    public function findClear($id){
+
+        $badge = $this->badge->reviewsPercentage()->with([
+            'photos', 
+            'category' => function($query) {
+                $query->selectRaw('parent_id, id, name, slug');
+            }, 
+            'reviews'=> function($query) {
+                $query->select('id', 'customer_id', 'badge_id', 'reviewer_customer_id', 'average', 'comment', 'updated_at');
+                $query->where([
+                    ['approved', '=', 1],
+                    ['comment', '!=', ''],
+                ]);
+                $query->take(3);
+            },  
+            'workTime' => function($query) {
+                $query->selectRaw('id, day, initial_time, final_time');
+                $query->orderByRaw("FIELD(day, 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo')");
+            }])
+            ->find($id);
+
+        if (!isset($badge)){
+            $return = [
+                'msg' => 'Desculpe, esse crachá não existe ou não está mais disponível!'
+            ]; 
+        } else {
+            $badge->reviews = $this->reviewsMessage($badge->reviews);
+            $badge->reviewsCount = BadgeReview::where('badge_id', $badge->id)->approved()->count();
+            $badge->canceled = ($badge->subscription->gateway_status == 'canceled_by_user' || $badge->subscription->gateway_status == 'canceled')? true : false;
+            $return['data'] = $badge;
+            $badge->views()->create([
+                'customer_id' => $badge->customer_id,
+                'badge_id' => $badge->id
+            ]);
+        }
+ 
+        return $return;
+    }
+
     public function find($id){
 
         $badge = $this->badge->reviewsPercentage()->with([
@@ -255,7 +294,6 @@ class BadgeRepository
             ->orderBy('plus', 'desc')
             ->paginate(10);
 
-        
         if ($badges->isEmpty()){
             $return = [
                 'msg' => 'Não foi possivel carregar os crachás!'
