@@ -17,6 +17,8 @@ use App\Subscription;
 use App\Api_setting;
 use DB, Str, Config, Image;
 use Symfony\Component\Console\Input\Input as SymfonyInput;
+use App\Models\File;
+use Illuminate\Support\Facades\Storage;
 
 class BadgeRepository
 {
@@ -79,11 +81,22 @@ class BadgeRepository
         }
 
         if (isset($request->photo) && $request->photo != null) {
-        /**
-         * Pega foto do crachá
-         */
-        $badge->photo = $request->photo;
+            // Pega foto do crachá
+            $data = $request->photo;
+            $name = uniqid();
+            $extension = explode('/', mime_content_type($data))[1];
+            $filepath = '\images\badges\\'.$name.'.'.$extension;
 
+            $data = str_replace('data:image/png;base64,', '', $data);
+            $data = str_replace('data:image/jpeg;base64,', '', $data);
+            $data = str_replace('data:image/jpg;base64,', '', $data);
+            $data = str_replace(' ', '+', $data);
+            $data = base64_decode($data);
+            file_put_contents(public_path($filepath), $data);
+
+            if (file_exists(public_path($filepath))) {
+                $badge->photo = $filepath;
+            }
         }
 
         $badge->customer_id = $user->id;
@@ -146,10 +159,23 @@ class BadgeRepository
             /**
              * Pega foto do documento
              */
+            $data = $request->document_photo;
+            $extension = explode('/', mime_content_type($data))[1];
 
-            $newUser->document_photo  = $request->document_photo;
+            $name = uniqid();
+            $filepath = '\images\document_photo\\'.$name.'.'.$extension;
 
-            $newUser->save();
+            $data = str_replace('data:image/png;base64,', '', $data);
+            $data = str_replace('data:image/jpeg;base64,', '', $data);
+            $data = str_replace('data:image/jpg;base64,', '', $data);
+            $data = str_replace(' ', '+', $data);
+            $data = base64_decode($data);
+            file_put_contents(public_path($filepath), $data);
+        
+            if (file_exists(public_path($filepath))) {
+                $newUser->document_photo = $filepath;
+                $newUser->save();
+            }
 
             $user = $newUser;
 
@@ -204,7 +230,6 @@ class BadgeRepository
                 $query->take(3);
             },  
             'workTime' => function($query) {
-                $query->selectRaw('id, day, initial_time, final_time');
                 $query->orderByRaw("FIELD(day, 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo')");
             }])
             ->find($id);
@@ -391,10 +416,26 @@ class BadgeRepository
     public function uploadPhotos($badge, $photos){
 
         foreach ($photos as $photo) {
-            $badgephoto = new BadgePhoto();
-            $badgephoto->badge_id = $badge;
-            $badgephoto->filename = $photo['img'];
-            $badgephoto->save();
+            $data = $photo['img'];
+
+            $mime = mime_content_type($data);
+            $extension = explode('/', $mime)[1];
+
+            $name = uniqid();
+            $filepath = '\images\badge_photos\\'.$name.'.'.$extension;
+            $data = str_replace('data:image/png;base64,', '', $data);
+            $data = str_replace('data:image/jpeg;base64,', '', $data);
+            $data = str_replace('data:image/jpg;base64,', '', $data);
+            $data = str_replace(' ', '+', $data);
+            $data = base64_decode($data);
+            file_put_contents(public_path($filepath), $data);
+            
+            if (file_exists(public_path($filepath))) {
+                $badgephoto = new BadgePhoto();
+                $badgephoto->badge_id = $badge;
+                $badgephoto->filename = $filepath;
+                $badgephoto->save();
+            }
         }
 
         return null;
@@ -671,11 +712,27 @@ class BadgeRepository
     public function uploadPhotosByFile(Request $request)
     {
         if ($request->count > 0) {
-            for ($i=0; $i < $request->count; $i++) { 
-                $badgephoto = new BadgePhoto();
-                $badgephoto->badge_id = $request->badge_id;
-                $badgephoto->filename = 'data:image/jpeg;base64,'.base64_encode(file_get_contents($request->file("file".$i)));
-                $badgephoto->save();
+            for ($i=0; $i < $request->count; $i++) {
+                $data = $request->file('file'.$i);
+                $extension = explode('/', mime_content_type($data))[1];
+    
+                $name = uniqid();
+                $filepath = '\images\badge_photos\\'.$name.'.'.$extension;
+
+                $data = $request->file('file'.$i);
+                $data = str_replace('data:image/png;base64,', '', $data);
+                $data = str_replace('data:image/jpeg;base64,', '', $data);
+                $data = str_replace('data:image/jpg;base64,', '', $data);
+                $data = str_replace(' ', '+', $data);
+                $data = base64_decode($data);
+                file_put_contents(public_path($filepath), $data);
+            
+                if (file_exists(public_path($filepath))) {
+                    $badgephoto = new BadgePhoto();
+                    $badgephoto->badge_id = $request->badge_id;
+                    $badgephoto->filename = $filepath;
+                    $badgephoto->save();
+                }
             }
         }
         return true;

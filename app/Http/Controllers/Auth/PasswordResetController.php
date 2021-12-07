@@ -23,7 +23,7 @@ class PasswordResetController extends Controller
         $user = User::where('email', $request->email)->first();
         if (!$user)
             return response()->json([
-                'msg' => 'We cant find a user with that e-mail address.'
+                'msg' => 'Não foi encontrado nenhum usuário com esse email.'
             ], 404);
           
         $passwordReset = PasswordReset::Create(
@@ -38,8 +38,8 @@ class PasswordResetController extends Controller
                 new PasswordResetRequest($passwordReset->token)
             );
         return response()->json([
-            'msg' => 'We have e-mailed your password reset link!'
-        ]);
+            'msg' => 'Foi enviado um e-mail com um link para redefinir sua senha.'
+        ], 200);
     }
     /**
      * Find token password reset

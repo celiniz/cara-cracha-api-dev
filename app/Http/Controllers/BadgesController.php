@@ -60,7 +60,9 @@ class BadgesController extends Controller
         $urlSite = url()->to('/');
         
         foreach($return as $row){
-            $row->photo = $urlSite.$row->photo;
+            if(isset($row) && isset($row->photo)){
+                $row->photo = $urlSite.$row->photo;
+            }
         }
 
         return response()->json($return, 200);
@@ -80,6 +82,14 @@ class BadgesController extends Controller
 
         $return = $this->badge->myBadges($request);
 
+        $urlSite = url()->to('/');
+        
+        foreach($return as $row){
+            if (isset($row) && isset($row->photo)) {
+                $row->photo = $urlSite.$row->photo;
+            }
+        }
+        
         return response()->json($return, 200);
     }
 

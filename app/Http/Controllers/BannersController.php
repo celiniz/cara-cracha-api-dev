@@ -23,7 +23,9 @@ class BannersController extends Controller
         $urlSite = url()->to('/');
         
         foreach($banners as $row){
-            $row->img = $urlSite.$row->img;
+            if (isset($row) && isset($row->img)) {
+                $row->img = $urlSite.$row->img;
+            }
         }
 
         return response()->json($banners, 200);        
