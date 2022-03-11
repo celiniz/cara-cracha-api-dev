@@ -39,7 +39,7 @@ class BadgeRepository
     public function create(Request $request){
 
         $user = $this->userBadge($request);
-
+        
         $request->validate([
             'city_id'             => 'required|numeric',
             'plan_id'             => 'required|numeric',
@@ -59,7 +59,7 @@ class BadgeRepository
         ]);
 
         $badge = new Badge;
-
+        
         if ($request->category_id == null) {
             $category = new Category;
             $category->active = 0;
@@ -80,25 +80,6 @@ class BadgeRepository
             $badge->category_id = $request->category_id;
         }
 
-        if (isset($request->photo) && $request->photo != null) {
-            // Pega foto do crachá
-            $data = $request->photo;
-            $name = uniqid();
-            $extension = explode('/', mime_content_type($data))[1];
-            $filepath = '\images\badges\\'.$name.'.'.$extension;
-
-            $data = str_replace('data:image/png;base64,', '', $data);
-            $data = str_replace('data:image/jpeg;base64,', '', $data);
-            $data = str_replace('data:image/jpg;base64,', '', $data);
-            $data = str_replace(' ', '+', $data);
-            $data = base64_decode($data);
-            file_put_contents(public_path($filepath), $data);
-
-            if (file_exists(public_path($filepath))) {
-                $badge->photo = $filepath;
-            }
-        }
-
         $badge->customer_id = $user->id;
         $badge->city_id = $request->city_id;
         $badge->plan_id = $request->plan_id;
@@ -112,19 +93,15 @@ class BadgeRepository
         $badge->zipcode = str_replace('-', '', $request->zipcode);
         $badge->uf = $request->uf;
         $badge->city = $request->city;
-        $badge->street = $request->street ;
-        $badge->number = $request->number ;
-        $badge->district = $request->district ;
-        if (isset($request->complement)) $badge->complement = $request->complement ;
-        $badge->range = ceil($request->range) ;
-        $badge->description = $request->description ;
+        $badge->street = $request->street;
+        $badge->number = $request->number;
+        $badge->district = $request->district;
+        if (isset($request->complement)) $badge->complement = $request->complement;
+        $badge->range = ceil($request->range);
+        $badge->description = $request->description;
+        $badge->temp = 1;
 
         $badge->save();
-
-        if (isset($request->photos) && $request->photos != null) {
-            $this->uploadPhotos($badge->id, $request->photos);
-        }
-
 
         if (isset($request->workTime) && $request->workTime != null) {
             $this->storeWorkTimes($badge->id, $request->workTime);
@@ -141,7 +118,6 @@ class BadgeRepository
         $user = '';
 
         if (isset($request->first_name)) {         
-    
             $newUser = new User([
                 'first_name' => $request->first_name,
                 'last_name' => $request->last_name,
@@ -150,57 +126,18 @@ class BadgeRepository
                 'email' => $request->email,
                 'password' => bcrypt($request->password),
                 'code' => mt_rand(1000000, 9999999),
+                'temp' => 1
             ]);
 
             if ($newUser->genre == 3) {
                 $newUser->genre = 0;
             }
 
-            /**
-             * Pega foto do documento
-             */
-            $data = $request->document_photo;
-            $extension = explode('/', mime_content_type($data))[1];
-
-            $name = uniqid();
-            $filepath = '\images\document_photo\\'.$name.'.'.$extension;
-
-            $data = str_replace('data:image/png;base64,', '', $data);
-            $data = str_replace('data:image/jpeg;base64,', '', $data);
-            $data = str_replace('data:image/jpg;base64,', '', $data);
-            $data = str_replace(' ', '+', $data);
-            $data = base64_decode($data);
-            file_put_contents(public_path($filepath), $data);
-        
-            if (file_exists(public_path($filepath))) {
-                $newUser->document_photo = $filepath;
-                $newUser->save();
-            }
-
+            $newUser->save();
             $user = $newUser;
 
         }else {
-            $currentlyUser = User::find($request->user()->id);
-
-            if (empty($currentlyUser->document)) {
-                $request->validate([
-                    'document' => 'required|string',
-                    'document_photo_name' => 'required|string',
-                ]);
-
-                $currentlyUser->document = $request->document;
-
-                /**
-                 * Pega foto do documento
-                 */
-
-                $currentlyUser->document_photo  = $request->document_photo;
-
-                $currentlyUser->save();
-
-            }
-
-            $user = $currentlyUser;
+            $user = User::find($request->user()->id);
         }
 
         return $user;
@@ -220,7 +157,7 @@ class BadgeRepository
             'photos', 
             'category' => function($query) {
                 $query->selectRaw('parent_id, id, name, slug');
-            }, 
+            },
             'reviews'=> function($query) {
                 $query->select('id', 'customer_id', 'badge_id', 'reviewer_customer_id', 'average', 'comment', 'updated_at');
                 $query->where([
@@ -232,6 +169,7 @@ class BadgeRepository
             'workTime' => function($query) {
                 $query->orderByRaw("FIELD(day, 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo')");
             }])
+            ->subscribed()
             ->find($id);
 
         if (!isset($badge)){
@@ -247,6 +185,8 @@ class BadgeRepository
                 'customer_id' => $badge->customer_id,
                 'badge_id' => $badge->id
             ]);
+
+            unset($badge->subscription);
         }
  
         return $return;
@@ -296,6 +236,10 @@ class BadgeRepository
      */
     public function get($id){
         return $this->badge->find($id);        
+    }
+
+    public function getTemp($id){
+        return Badge::where(['temp' => 1, 'id' => $id])->first();
     }
 
 
@@ -475,15 +419,6 @@ class BadgeRepository
 
         $badge = Badge::find($id);        
 
-
-        if (isset($request->photo) && $request->photo != null) {
-            /**
-             * Pega foto do crachá
-             */
-            $badge->photo = $request->photo;
-    
-        }
-
         $badge->category_id = $request->category_id;
         $badge->customer_id = $request->user()->id;
         $badge->city_id = $request->city_id;
@@ -507,19 +442,17 @@ class BadgeRepository
         
         $badge->save();
 
-        if (isset($request->photos_delete) && $request->photos_delete != null) {
-            foreach ($request->photos_delete as $delete) {
+        if (isset($request->photos_service_delete) && $request->photos_service_delete != null) {
+            foreach ($request->photos_service_delete as $delete) {
+                $badgePhoto = BadgePhoto::find($delete)->first();
+                
+                if(isset($badgePhoto) && $badgePhoto->filename){
+                    unlink(public_path().$badgePhoto->filename);
+                }
+
                 BadgePhoto::destroy($delete);
             }
         }
-
-        if (isset($request->photos_insert) && $request->photos_insert != null) {
-            $this->uploadPhotos($badge->id, $request->photos_insert);
-        }
-
-        // BadgePhoto::where('badge_id', $badge->id)->delete();
-        // BadgeWorkTime::where('badge_id', $badge->id)->delete();
-
 
         if (isset($request->workTime) && $request->workTime != null) {
             $this->removeWorkTimes($badge->id);
@@ -711,31 +644,123 @@ class BadgeRepository
      */
     public function uploadPhotosByFile(Request $request)
     {
-        if ($request->count > 0) {
-            for ($i=0; $i < $request->count; $i++) {
-                $data = $request->file('file'.$i);
-                $extension = explode('/', mime_content_type($data))[1];
-    
-                $name = uniqid();
-                $filepath = '\images\badge_photos\\'.$name.'.'.$extension;
-
-                $data = $request->file('file'.$i);
-                $data = str_replace('data:image/png;base64,', '', $data);
-                $data = str_replace('data:image/jpeg;base64,', '', $data);
-                $data = str_replace('data:image/jpg;base64,', '', $data);
-                $data = str_replace(' ', '+', $data);
-                $data = base64_decode($data);
-                file_put_contents(public_path($filepath), $data);
+        $badge = Badge::where(["id" => $request->badge_id])->first();
+        
+        if(isset($badge)){
+            $errImage = [];
+            if ($request->count_photos_service > 0) {
+                
+                for ($i=0; $i < $request->count_photos_service; $i++) {
+                    try{
+                        $data = $request->input('photo_service_'.$i);
+                        $extension = explode('/', mime_content_type($data))[1];
             
-                if (file_exists(public_path($filepath))) {
-                    $badgephoto = new BadgePhoto();
-                    $badgephoto->badge_id = $request->badge_id;
-                    $badgephoto->filename = $filepath;
-                    $badgephoto->save();
+                        $name = uniqid();
+                        $filepath = '/images/badge_photos/'.$name.'.'.$extension;
+                        $data = $request->input('photo_service_'.$i);
+                        $data = str_replace('data:image/png;base64,', '', $data);
+                        $data = str_replace('data:image/jpeg;base64,', '', $data);
+                        $data = str_replace('data:image/jpg;base64,', '', $data);
+                        $data = str_replace(' ', '+', $data);
+                        $data = base64_decode($data);
+                        $filePutPath = public_path().$filepath;
+                        file_put_contents($filePutPath, $data);
+                        if (file_exists($filePutPath)) {
+                            $img = Image::make($filePutPath);
+                            $badgephoto = new BadgePhoto();
+                            $badgephoto->badge_id = $request->badge_id;
+                            $badgephoto->filename = $filepath;
+                            $badgephoto->save();
+                        } else {
+                            $errImage[] = 'badge_photo';
+                        }
+                    } catch(\Exception $e) {
+                        $errImage[] = 'badge_photo';
+                    }
                 }
             }
+
+            if($request->count_photo_profile > 0){
+                if($badge->photo && $badge->photo != ""){
+                    unlink(public_path().$badge->photo);
+                }
+
+                try{
+                    $data = $request->input('photo_profile');
+                    $extension = explode('/', mime_content_type($data))[1];
+
+                    $name = uniqid();
+                    $filepath = '/images/badges/'.$name.'.'.$extension;
+
+                    $data = $request->input('photo_profile');
+                    $data = str_replace('data:image/png;base64,', '', $data);
+                    $data = str_replace('data:image/jpeg;base64,', '', $data);
+                    $data = str_replace('data:image/jpg;base64,', '', $data);
+                    $data = str_replace(' ', '+', $data);
+                    $data = base64_decode($data);
+                    $filePutPath = public_path().$filepath;
+                    file_put_contents($filePutPath, $data);
+                
+                    if (file_exists($filePutPath)) {
+                        $img = Image::make($filePutPath);
+
+                        $badge->photo = $filepath;
+
+                    } else {
+                        $errImage[] = 'photo_profile';
+                    }
+                } catch(\Exception $e) {
+                    $errImage[] = 'photo_profile';
+                }
+            }
+
+            if($request->count_photo_document > 0){
+                $user = User::where('id', $badge->customer_id)->first();
+                if($user->document_photo && $user->document_photo != ""){
+                    unlink(public_path().$user->document_photo);
+                }
+
+                try{
+                    $data = $request->input('photo_document');
+                    $extension = explode('/', mime_content_type($data))[1];
+
+                    $name = uniqid();
+                    $filepath = '/images/document_photo/'.$name.'.'.$extension;
+
+                    $data = $request->input('photo_document');
+                    $data = str_replace('data:image/png;base64,', '', $data);
+                    $data = str_replace('data:image/jpeg;base64,', '', $data);
+                    $data = str_replace('data:image/jpg;base64,', '', $data);
+                    $data = str_replace(' ', '+', $data);
+                    $data = base64_decode($data);
+                    $filePutPath = public_path().$filepath;
+                    file_put_contents($filePutPath, $data);
+                
+                    if (file_exists($filePutPath)) {
+                        $img = Image::make($filePutPath);
+
+                        $user->document_photo = $filepath;
+                        $user->save();
+
+                    } else {
+                        $errImage[] = 'photo_document';
+                    }
+                } catch(\Exception $e) {
+                    $errImage[] = 'photo_document';
+                }
+            }
+            
+            if (sizeof($errImage) > 0) {
+                return (object) ['error' => true, 'data' => $errImage];
+            } else {
+                $badge->temp = 0;
+                $badge->save();
+            }
+
+            return (object) ['error' => false];
         }
-        return true;
+
+        return false;
     }
 
 }

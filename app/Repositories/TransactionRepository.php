@@ -12,10 +12,10 @@ class TransactionRepository
 	public function getAllFromCustomer($customerId)
 	{
 		$invoices = [];
-
+		
 		foreach (User::with(['badges'])->find($customerId)->badges as $badge) 
 		{
-			$transactions = BadgeTransaction::where('subscription_id', $badge->subscription)->get();
+			$transactions = BadgeTransaction::where('subscription_id', $badge->subscription_id)->get();
 			foreach ($transactions as $transaction)
 			{
 				$transaction->status_name = $transaction->status->name;

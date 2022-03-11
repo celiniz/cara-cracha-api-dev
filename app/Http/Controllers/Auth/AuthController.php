@@ -28,10 +28,11 @@ class AuthController extends Controller
             'remember_me' => 'boolean'
         ]);
         $credentials = request(['email', 'password']);
-        if(!Auth::attempt($credentials))
+        if(!Auth::attempt($credentials)){
             return response()->json([
                 'msg' => 'O e-mail e/ou senha informados estão inválidos.'
             ], 401);
+        }
         $user = $request->user();
         $tokenResult = $user->createToken('Personal Access Token');
         $token = $tokenResult->token;
@@ -42,7 +43,7 @@ class AuthController extends Controller
         $badges = Badge::where('customer_id', $user->id)->subscribed()->first();
         if (!$badges) {
             $badges = false;
-        }else {
+        }else { 
             $badges = true;
         }
 
@@ -64,6 +65,12 @@ class AuthController extends Controller
                 $user->genre = ['code' => '', 'name' => 'Indefinido'];
                 break;
         }
+
+        unset($user->document);
+        unset($user->document_photo);
+        unset($user->created_at);
+        unset($user->deleted_at);
+        unset($user->updated_at);
 
         return response()->json([
             'user' => $user,

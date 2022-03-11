@@ -58,7 +58,7 @@ class CustomersController extends Controller
     * Função que atualiza o usuário logado
     */
     public function update(Request $request){
-
+        echo 1;die;
         $user = $this->customer->update($request);  
 
         return response()->json([

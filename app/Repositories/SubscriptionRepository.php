@@ -51,6 +51,29 @@ class SubscriptionRepository
             $request->payment_method = "credit_card";
         }
 
+        if(isset($request->dev)){
+            $subscription = new Subscription;
+
+            $subscription->plan_id = 10;
+            $subscription->gateway_id = 1111111111;
+            $subscription->gateway_status = 'trialing';
+            $subscription->start_at = date("Y-m-d H:i:s");
+            $subscription->end_at = date("Y-m-d H:i:s", strtotime('2022-10-02'));
+            $subscription->save();
+    
+            $badge->subscription_id = $subscription->id;
+    
+            $badge->save();
+
+            $arrRetorno = (object) [
+                'billet_barcode' => 111111111111111111111111111111111111,
+                'amount' => '178,32',
+                'billet_url' => 'https://www.boletobancario.com/boletofacil/img/boleto-facil-exemplo.pdf',
+                'expiration_date' => '10/05/2022'
+            ];
+
+            return response()->json($arrRetorno, 201);
+        }
 
         switch ($request->payment_method) {
             case 'credit_card':

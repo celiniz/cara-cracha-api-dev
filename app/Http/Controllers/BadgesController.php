@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\BadgePhoto;
+use App\BadgeView;
 use Illuminate\Http\Request;
 use App\Repositories\BadgeRepository;
+use App\Repositories\CustomersRepository;
 use App\Repositories\SubscriptionRepository;
 use App\User;
+use App\BadgeWorkTime;
 
 class BadgesController extends Controller
 {
@@ -25,20 +29,34 @@ class BadgesController extends Controller
     public function find($id){
 
         $customers = $this->badge->findClear($id);
-
         $urlSite = url()->to('/');
-        
+        //Solução adaptada pra remover retorno indesejado
+
         foreach ($customers as $customer) {
+            $photoReturn = [];
+
             if (isset($customer->subscription)){
                 unset($customer->subscription);
             }
+
             if (isset($customer->photo)) {
-                $customer->photo = $urlSite.$customer->photo;
+                $customer->photo_profile_only_view = $urlSite.$customer->photo;
+                unset($customer->photo);
             }
+            
             if(isset($customer->photos) && sizeof($customer->photos)){
-                foreach ($customer->photos as $photos) {
-                    $photos->filename = $urlSite.$photos->filename;
+                foreach ($customer->photos as $key => $photo) {
+                    $photo->uri = $urlSite.$photo->filename;
+                    unset($photo->created_at);
+                    unset($photo->updated_at);
+                    unset($photo->badge_id);
+                    unset($photo->filename);
+
+                    $photoReturn[] = $photo;
                 }
+
+                $customer->photos_service_only_view = $photoReturn;
+                unset($customer->photos);
             }
         }
 
@@ -61,10 +79,11 @@ class BadgesController extends Controller
         
         foreach($return as $row){
             if(isset($row) && isset($row->photo)){
-                $row->photo = $urlSite.$row->photo;
+                $row->photo_profile_only_view = $urlSite.$row->photo;
+                unset($row->photo);
             }
         }
-
+        
         return response()->json($return, 200);
     }
 
@@ -79,14 +98,14 @@ class BadgesController extends Controller
     *
     */
     public function myBadges(Request $request){
-
         $return = $this->badge->myBadges($request);
 
         $urlSite = url()->to('/');
         
         foreach($return as $row){
             if (isset($row) && isset($row->photo)) {
-                $row->photo = $urlSite.$row->photo;
+                $row->photo_profile_only_view = $urlSite.$row->photo;
+                unset($row->photo);
             }
         }
         
@@ -100,7 +119,6 @@ class BadgesController extends Controller
     *
     */
     public function create(Request $request){
-
         if (isset($request->first_name)) {
             
             if(User::where('email', $request->email)->count() > 0){
@@ -114,36 +132,15 @@ class BadgesController extends Controller
                 'last_name' => 'required|string',
                 'genre' => 'required|numeric',
                 'document' => 'required|string',
-                'document_photo_name' => 'required|string',
                 'email' => 'required|string|email|unique:users',
                 'password' => 'required|string|confirmed',
             ]);
         }
 
-        $request->validate([
-            'city_id'             => 'required|numeric',
-            'plan_id'             => 'required|numeric',
-            'nickname'            => 'required|string',
-            'cellphone'           => 'required|string',
-            'latitude'            => 'required|string',
-            'longitude'           => 'required|string',
-            'zipcode'             => 'required|string',
-            'uf'                  => 'required|string',
-            'city'                => 'required|string',
-            'street'              => 'required|string',
-            'number'              => 'required|numeric',
-            'district'            => 'required|string',
-            'range'               => 'required|numeric',
-            'description'         => 'required|string',
-            'workTime'            => 'required|array'
-        ]);
-
-
-
         $badge = $this->badge->create($request);
 
         return response()->json([
-            'data' => $badge
+            'badge_id' => (isset($badge) ? $badge->id : null)
         ], 201);
     }
 
@@ -228,7 +225,7 @@ class BadgesController extends Controller
         $badge = $this->badge->updateBadge($request, $id);
 
         return response()->json([
-            'data' => $badge
+            'badge_id' => (isset($badge) ? $badge->id : null)
         ], 201);
         
     }
@@ -351,16 +348,40 @@ class BadgesController extends Controller
      * 
      */
     public function uploadPhotosByFile(Request $request){
-
         $request->validate([
             'badge_id' => 'required|numeric',
-            'count' => 'required|numeric'
+            'count_photo_profile' => 'required|numeric',
+            'count_photos_service' => 'required|numeric',
+            'count_photo_document' => 'required|numeric'
         ]);
 
-        if ($this->badge->uploadPhotosByFile($request)) {
+        $upPhoto = $this->badge->uploadPhotosByFile($request);
+        if (isset($upPhoto) && $upPhoto->error === false) {
             return response()->json(200);
-        }else {
-            return response()->json(400);
+        } else {
+            $badge = $this->badge->getTemp($request->badge_id);
+            if(isset($badge)){
+                $badgePhotos = BadgePhoto::where('badge_id', $request->badge_id)->get();
+                
+                foreach($badgePhotos as $badgePhoto){
+                    $badgePhoto->forceDelete();
+                }
+                
+                $badgeWorkTimes = BadgeWorkTime::where('badge_id', $request->badge_id)->get();
+                foreach($badgeWorkTimes as $badgeWorkTime){
+                    $badgeWorkTime->forceDelete();
+                }
+
+                $badgeViews = BadgeView::where('badge_id', $request->badge_id)->get();
+                foreach($badgeViews as $badgeView){
+                    $badgeView->forceDelete();
+                }
+
+                $badge->forceDelete();
+                User::where(['id' => $badge->customer_id, 'temp' => 1])->first()->forceDelete();
+            }
+
+            return response()->json($upPhoto, 400);
         }
         
     }
