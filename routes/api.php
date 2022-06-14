@@ -32,4 +32,6 @@ Route::group(['prefix' => 'v1'], function () {
 
     Route::get('banners', 'BannersController@get');
 
+    Route::post('banners', 'BannersController@upload');
+
 });

@@ -446,7 +446,7 @@ class BadgeRepository
             foreach ($request->photos_service_delete as $delete) {
                 $badgePhoto = BadgePhoto::find($delete)->first();
                 
-                if(isset($badgePhoto) && $badgePhoto->filename){
+                if(isset($badgePhoto) && $badgePhoto->filename && file_exists(public_path().$badgePhoto->filename)){
                     unlink(public_path().$badgePhoto->filename);
                 }
 
@@ -648,11 +648,13 @@ class BadgeRepository
         
         if(isset($badge)){
             $errImage = [];
-            if ($request->count_photos_service > 0) {
+            $arrBadgePhotos = [];
+            if ($request->count_photos_service && $request->count_photos_service > 0) {
                 
                 for ($i=0; $i < $request->count_photos_service; $i++) {
                     try{
                         $data = $request->input('photo_service_'.$i);
+                        
                         $extension = explode('/', mime_content_type($data))[1];
             
                         $name = uniqid();
@@ -670,6 +672,7 @@ class BadgeRepository
                             $badgephoto = new BadgePhoto();
                             $badgephoto->badge_id = $request->badge_id;
                             $badgephoto->filename = $filepath;
+                            $arrBadgePhotos[] = $filepath;
                             $badgephoto->save();
                         } else {
                             $errImage[] = 'badge_photo';
@@ -680,8 +683,8 @@ class BadgeRepository
                 }
             }
 
-            if($request->count_photo_profile > 0){
-                if($badge->photo && $badge->photo != ""){
+            if($request->count_photo_profile && $request->count_photo_profile > 0){
+                if($badge->photo && $badge->photo != "" && file_exists(public_path().$badge->photo)){
                     unlink(public_path().$badge->photo);
                 }
 
@@ -714,9 +717,9 @@ class BadgeRepository
                 }
             }
 
-            if($request->count_photo_document > 0){
+            if($request->count_photo_document && $request->count_photo_document > 0){
                 $user = User::where('id', $badge->customer_id)->first();
-                if($user->document_photo && $user->document_photo != ""){
+                if($user->document_photo && $user->document_photo != "" && file_exists(public_path().$user->document_photo)){
                     unlink(public_path().$user->document_photo);
                 }
 
@@ -755,6 +758,8 @@ class BadgeRepository
             } else {
                 $badge->temp = 0;
                 $badge->save();
+                
+                return $arrBadgePhotos;
             }
 
             return (object) ['error' => false];

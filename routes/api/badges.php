@@ -24,6 +24,15 @@ Route::get('reviews/{id}', 'BadgesController@getReviews');
 //Upload pictures by file
 Route::post('badges/photos', 'BadgesController@uploadPhotosByFile');
 
+//Upload picture by file on website
+Route::post('badges/photoSite', 'BadgesController@uploadEditPhotoSite');
+
+//Delete picture by file on website
+Route::post('badges/deletePhotoSite', 'BadgesController@deleteEditPhotoSite');
+
+//Get max photos service
+Route::get('badges/maxPhotosService', 'BadgesController@getMaxPhotosService');
+
 Route::group([
     'middleware' => 'auth:api'
 ], function () {

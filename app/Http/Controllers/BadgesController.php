@@ -10,6 +10,8 @@ use App\Repositories\CustomersRepository;
 use App\Repositories\SubscriptionRepository;
 use App\User;
 use App\BadgeWorkTime;
+use App\Setting;
+use Illuminate\Support\Facades\Validator;
 
 class BadgesController extends Controller
 {
@@ -74,7 +76,7 @@ class BadgesController extends Controller
     */
     public function search(){
         $return = $this->badge->search();
-
+        
         $urlSite = url()->to('/');
         
         foreach($return as $row){
@@ -348,15 +350,20 @@ class BadgesController extends Controller
      * 
      */
     public function uploadPhotosByFile(Request $request){
-        $request->validate([
+        $rules = [
             'badge_id' => 'required|numeric',
             'count_photo_profile' => 'required|numeric',
             'count_photos_service' => 'required|numeric',
             'count_photo_document' => 'required|numeric'
-        ]);
-
+        ];
+        $validator = Validator::make($request->all(), $rules);
+        if ($validator->fails()) {
+            return response()->json(400);
+        }
+        
         $upPhoto = $this->badge->uploadPhotosByFile($request);
-        if (isset($upPhoto) && $upPhoto->error === false) {
+        
+        if ((isset($upPhoto) && is_object($upPhoto)) && $upPhoto->error === false) {
             return response()->json(200);
         } else {
             $badge = $this->badge->getTemp($request->badge_id);
@@ -380,9 +387,53 @@ class BadgesController extends Controller
                 $badge->forceDelete();
                 User::where(['id' => $badge->customer_id, 'temp' => 1])->first()->forceDelete();
             }
-
             return response()->json($upPhoto, 400);
         }
         
+    }
+
+    public function uploadEditPhotoSite(Request $request){
+        $rules = [
+            'badge_id' => 'required|numeric',
+            'count_photos_service' => 'required|numeric',
+        ];
+
+        $validator = Validator::make($request->all(), $rules);
+        if ($validator->fails()) {
+            return response()->json(400);
+        }
+
+        $upPhoto = $this->badge->uploadPhotosByFile($request);
+        if (isset($upPhoto) && $upPhoto->error === false) {
+            return response()->json(200);
+        } else {
+            return response()->json(400);
+        }
+    }
+
+    public function deleteEditPhotoSite(Request $request){
+        $rules = [
+            'id' => 'required|numeric',
+        ];
+
+        $validator = Validator::make($request->all(), $rules);
+        if ($validator->fails()) {
+            return response()->json(400);
+        }
+
+        $badgePhoto = BadgePhoto::find($request->id);
+        if ($badgePhoto && is_object($badgePhoto)) {
+            if(isset($badgePhoto) && $badgePhoto->filename){
+                unlink(public_path().$badgePhoto->filename);
+            }
+
+            BadgePhoto::destroy($request->id);
+        }
+    }
+
+    public function getMaxPhotosService(){
+        $settings = Setting::where('tag', 'max_photos_service')->first();
+
+        return response()->json($settings->value, 200);
     }
 }
